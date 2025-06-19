@@ -17,6 +17,7 @@ import SearchIcon from "../../assets/search-icon.svg";
 import StarIcon from "../../assets/star-icon.svg";
 import { useRecipes } from "../../src/context/RecipeContext";
 import { Recipe } from "../../src/types/recipe";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Define types for navigation
 type HomeStackParamList = {
@@ -47,6 +48,7 @@ interface RecipeCardProps {
   likes: string;
   rating: string;
   recipe: Recipe;
+  recentlyAdded?: boolean;
 }
 
 const RecipeCard = ({
@@ -56,22 +58,45 @@ const RecipeCard = ({
   likes,
   rating,
   recipe,
+  recentlyAdded,
 }: RecipeCardProps) => {
   const navigation = useNavigation<HomeScreenNavigationProp>();
 
   return (
     <TouchableOpacity
-      style={styles.recipeCard}
+      style={[
+        styles.recipeCard,
+        {
+          shadowColor: recentlyAdded ? "#c9c6c6" : "#000000",
+          shadowOffset: recentlyAdded
+            ? { width: 0, height: 2 }
+            : { width: 0, height: 2 },
+          shadowOpacity: recentlyAdded ? 0.1 : 0.1,
+          shadowRadius: recentlyAdded ? 16 : 16,
+          borderWidth: recentlyAdded ? 1 : 1,
+          borderColor: recentlyAdded ? "#f5f3f3" : "#FBFBFB",
+        },
+      ]}
       onPress={() => {
         navigation.navigate("recipeDetail", { recipe });
       }}
     >
       <View style={styles.cardContent}>
         <View style={styles.imageContainer}>
-          <Image source={image} style={styles.recipeImage} resizeMode="cover" />
+          <Image
+            source={
+              creator === "You"
+                ? require("../../assets/default-food.png")
+                : image
+            }
+            style={styles.recipeImage}
+            resizeMode="cover"
+          />
           <View style={styles.starOverlay}>
-            <StarIcon width={32} height={32} />
-            <Text style={styles.ratingText}>{rating}</Text>
+            {creator !== "You" ? <StarIcon width={32} height={32} /> : null}
+            {creator !== "You" ? (
+              <Text style={styles.ratingText}>{rating}</Text>
+            ) : null}
           </View>
         </View>
         <View style={styles.recipeInfo}>
@@ -118,7 +143,6 @@ const HomeScreen = () => {
 
     // Combine the arrays, with created recipes at the top
     return [
-      ...createdRecipes,
       ...(filteredWithoutDuplicates.length > 0
         ? filteredWithoutDuplicates
         : filteredWithoutDuplicates.sort(
@@ -167,6 +191,38 @@ const HomeScreen = () => {
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
       >
+        {searchQuery || activeFilters.length > 0 ? null : (
+          <View style={styles.recentlyAddedContainer}>
+            <Text style={styles.recentlyAddedText}>Recently Added</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.recentlyAddedScrollView}
+              contentContainerStyle={[styles.recentlyAddedContentContainer]}
+            >
+              {createdRecipes.length > 0 ? (
+                createdRecipes.map((recipe, index) => (
+                  <View
+                    key={recipe.id || index}
+                    style={styles.recentlyAddedCardWrapper}
+                  >
+                    <RecipeCard
+                      image={recipe.image}
+                      title={recipe.title}
+                      creator={recipe.creator}
+                      likes={recipe.likes}
+                      rating={recipe.rating}
+                      recipe={recipe}
+                      recentlyAdded={true}
+                    />
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.noRecipesText}>No recipes added yet</Text>
+              )}
+            </ScrollView>
+          </View>
+        )}
         <Text style={styles.sectionTitle}>
           {searchQuery
             ? `Search Results (${displayedRecipes.length})`
@@ -349,6 +405,41 @@ const styles = StyleSheet.create({
     color: "#0A2533",
     fontFamily: "Ubuntu",
     // marginBottom: -20,
+  },
+  recentlyAddedContainer: {
+    paddingHorizontal: 0,
+    marginTop: 31,
+  },
+  recentlyAddedText: {
+    fontSize: 20,
+    fontFamily: "Ubuntu_500Medium",
+    color: "#0A2533",
+    paddingLeft: 4,
+  },
+  recentlyAddedScrollView: {
+    marginTop: 10,
+    marginBottom: 15,
+    backgroundColor: "#FFFFFF",
+  },
+  recentlyAddedContentContainer: {
+    paddingLeft: 4,
+    paddingRight: 20,
+    paddingVertical: 10,
+  },
+  recentlyAddedCardWrapper: {
+    width: 280,
+    marginRight: 15,
+  },
+  noRecipesText: {
+    fontSize: 16,
+    color: "#0A2533",
+    fontFamily: "Ubuntu_500Medium",
+    marginTop: 20,
+    marginLeft: 40,
+    marginBottom: 20,
+    paddingLeft: 10,
+    width: 280,
+    textAlign: "center",
   },
 });
 

@@ -23,6 +23,7 @@ import RecipeDetailScreen from "../../src/screens/RecipeDetailScreen";
 
 const Tab = createBottomTabNavigator();
 const HomeStack = createStackNavigator();
+const SavedStack = createStackNavigator();
 
 function HomeStackScreen() {
   return (
@@ -31,6 +32,15 @@ function HomeStackScreen() {
       <HomeStack.Screen name="filters" component={FiltersScreen} />
       <HomeStack.Screen name="recipeDetail" component={RecipeDetailScreen} />
     </HomeStack.Navigator>
+  );
+}
+
+function SavedStackScreen() {
+  return (
+    <SavedStack.Navigator screenOptions={{ headerShown: false }}>
+      <SavedStack.Screen name="savedMain" component={SavedScreen} />
+      <SavedStack.Screen name="recipeDetail" component={RecipeDetailScreen} />
+    </SavedStack.Navigator>
   );
 }
 
@@ -103,7 +113,7 @@ function TabLayout() {
       />
       <Tab.Screen
         name="saved"
-        component={SavedScreen}
+        component={SavedStackScreen}
         options={{
           tabBarIcon: ({ color, focused }) => (
             <BookmarkIcon

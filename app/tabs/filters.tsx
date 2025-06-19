@@ -100,6 +100,13 @@ const FiltersScreen = () => {
     navigation.navigate("homeMain");
   };
 
+  const arrowLeftIcon = `
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M4.25 12.2739L19.25 12.2739" stroke="#0A2533" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M10.2998 18.2985L4.2498 12.2745L10.2998 6.24951" stroke="#0A2533" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+    `;
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
@@ -107,11 +114,9 @@ const FiltersScreen = () => {
       {/* Header with Logo */}
       <View style={styles.headerContainer}>
         <View style={styles.logoWrapper}>
-          <Image
-            source={require("../../assets/logo.png")}
-            style={styles.logo}
-            resizeMode="contain"
-          />
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <SvgXml xml={arrowLeftIcon} />
+          </TouchableOpacity>
         </View>
         <Text style={styles.screenTitle}>Search with Filters</Text>
       </View>
@@ -257,7 +262,7 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#FFF7E4",
+    backgroundColor: "#ffffff",
     borderRadius: 15,
     overflow: "hidden",
     marginRight: 15,

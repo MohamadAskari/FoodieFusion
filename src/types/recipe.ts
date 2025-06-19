@@ -9,6 +9,15 @@ export interface Recipe {
   mealTime: string[];
   diets: string[];
   ingredients: string[];
+  comments?: Comment[];
+}
+
+export interface Comment {
+  id: string;
+  user: string;
+  date: string;
+  text: string;
+  likes: string;
 }
 
 export type FilterOption = {

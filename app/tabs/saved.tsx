@@ -41,8 +41,6 @@ interface RecipeCardProps {
   recipe: Recipe;
 }
 
-const isAndroid = Platform.OS === "android";
-
 const RecipeCard = ({
   image,
   title,
@@ -64,8 +62,10 @@ const RecipeCard = ({
         <View style={styles.imageContainer}>
           <Image source={image} style={styles.recipeImage} resizeMode="cover" />
           <View style={styles.starOverlay}>
-            <StarIcon width={32} height={32} />
-            <Text style={styles.ratingText}>{rating}</Text>
+            {creator !== "You" ? <StarIcon width={32} height={32} /> : null}
+            {creator !== "You" ? (
+              <Text style={styles.ratingText}>{rating}</Text>
+            ) : null}
           </View>
         </View>
         <View style={styles.recipeInfo}>
@@ -94,37 +94,6 @@ const SavedScreen = () => {
   // Filter categories
   const filterOptions = ["Most likes", "Lunch", "< 20 min"];
 
-  // This would use the actual savedRecipes but for the demo, let's use some sample data
-  const displayedRecipes =
-    savedRecipes.length > 0
-      ? savedRecipes
-      : [
-          {
-            id: "1",
-            image: require("../../assets/toast-strawberries.png"),
-            title: "Cake with some berries",
-            creator: "Benny Garlic",
-            likes: "346",
-            rating: "7",
-          },
-          {
-            id: "3",
-            image: require("../../assets/blueberry-egg.png"),
-            title: "Blueberry pudding for snack",
-            creator: "Alice Fala",
-            likes: "1234",
-            rating: "4",
-          },
-          {
-            id: "4",
-            image: require("../../assets/toast-egg.png"),
-            title: "Simple egg toast",
-            creator: "Mary",
-            likes: "774",
-            rating: "5",
-          },
-        ];
-
   const handleFilterPress = (filter: string) => {
     setSelectedFilter(filter);
   };
@@ -135,11 +104,13 @@ const SavedScreen = () => {
 
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Image
-            source={require("../../assets/FoodieLogo.png")}
-            style={styles.logoSmall}
-            resizeMode="contain"
-          />
+          <View style={styles.logoContainer}>
+            <Image
+              source={require("../../assets/FoodieLogo.png")}
+              style={styles.logoSmall}
+              resizeMode="contain"
+            />
+          </View>
           <Text style={styles.pageTitle}>Saved Recipes</Text>
         </View>
 
@@ -149,11 +120,23 @@ const SavedScreen = () => {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.latestContainer}
+            contentContainerStyle={[
+              styles.latestContainer,
+              latestRecipes.length === 0 && {
+                flexGrow: 1,
+                justifyContent: "center",
+              },
+            ]}
           >
             {latestRecipes.length > 0 ? (
               latestRecipes.map((recipe) => (
-                <Pressable key={recipe.id} style={styles.latestRecipeCard}>
+                <Pressable
+                  onPress={() => {
+                    navigation.navigate("recipeDetail", { recipe });
+                  }}
+                  key={recipe.id}
+                  style={styles.latestRecipeCard}
+                >
                   <View>
                     <Image
                       source={recipe.image}
@@ -164,73 +147,41 @@ const SavedScreen = () => {
                 </Pressable>
               ))
             ) : (
-              // Display sample images if no saved recipes
-              <>
-                <Pressable style={styles.latestRecipeCard}>
-                  <View>
-                    <Image
-                      source={require("../../assets/avocado-toast.png")}
-                      style={styles.latestRecipeImage}
-                    />
-                  </View>
-                  <Text style={styles.latestRecipeTitle}>
-                    Sunny Egg & Toast Avocado
-                  </Text>
-                </Pressable>
-                <Pressable style={styles.latestRecipeCard}>
-                  <View>
-                    <Image
-                      source={require("../../assets/beef-bowl.png")}
-                      style={styles.latestRecipeImage}
-                    />
-                  </View>
-                  <Text style={styles.latestRecipeTitle}>
-                    Bowl of noodle with beef
-                  </Text>
-                </Pressable>
-              </>
+              <View style={styles.emptyStateContainer}>
+                <Text style={[styles.emptyStateText]}>
+                  No recipes saved yet
+                </Text>
+              </View>
             )}
           </ScrollView>
         </View>
 
         {/* Filter Options */}
         <View style={styles.filterSection}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterContainer}
-          >
-            {filterOptions.map((filter) => (
-              <TouchableOpacity
-                key={filter}
-                style={[
-                  styles.filterButton,
-                  selectedFilter === filter && styles.filterButtonSelected,
-                ]}
-                onPress={() => handleFilterPress(filter)}
-              >
-                <Text style={styles.filterText}>{filter}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
           <View style={styles.titleRow}>
-            <Text style={styles.sectionTitle}>View all</Text>
+            <Text style={styles.sectionTitle}>Saved Recipes</Text>
           </View>
         </View>
 
         {/* Recipes List */}
         <View style={styles.recipesContainer}>
-          {displayedRecipes.map((recipe) => (
-            <RecipeCard
-              key={recipe.id}
-              image={recipe.image}
-              title={recipe.title}
-              creator={recipe.creator}
-              likes={recipe.likes}
-              rating={recipe.rating}
-              recipe={recipe as Recipe}
-            />
-          ))}
+          {savedRecipes.length > 0 ? (
+            savedRecipes.map((recipe) => (
+              <RecipeCard
+                key={recipe.id}
+                image={recipe.image}
+                title={recipe.title}
+                creator={recipe.creator}
+                likes={recipe.likes}
+                rating={recipe.rating}
+                recipe={recipe as Recipe}
+              />
+            ))
+          ) : (
+            <View style={styles.emptyStateContainer}>
+              <Text style={styles.emptyStateText}>No recipes saved yet</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -240,23 +191,39 @@ const SavedScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: isAndroid ? "#FFFFFF" : "#f5f4f4",
+    backgroundColor: "#FFFFFF",
   },
   header: {
+    flexDirection: "row",
     alignItems: "center",
-    marginTop: 20,
-    marginBottom: 10,
+    paddingTop: 16,
+    paddingHorizontal: 20,
+  },
+  logoContainer: {
+    width: 32,
+    height: 35,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 2,
+      height: 3,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   logoSmall: {
     width: 32,
-    height: 35,
-    marginBottom: 10,
+    height: 32,
+    borderRadius: 10,
   },
   pageTitle: {
     fontSize: 24,
     fontFamily: "Ubuntu_500Medium",
     color: "#0A2533",
-    textAlign: "center",
+    marginLeft: 18,
   },
   sectionTitle: {
     fontSize: 20,
@@ -305,8 +272,8 @@ const styles = StyleSheet.create({
     marginRight: 12,
     overflow: "hidden",
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#FBFBFB",
+    borderWidth: 2,
+    borderColor: "#f4f2f2",
     shadowColor: "#063336",
     shadowOffset: {
       width: 0,
@@ -341,7 +308,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
   },
   filterButton: {
     backgroundColor: "#EBF0F6",
@@ -366,6 +332,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 20,
     paddingBottom: 20,
+    flex: 1,
   },
   recipeCard: {
     backgroundColor: "#FFFFFF",
@@ -454,6 +421,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#000",
     fontFamily: "Ubuntu_500Medium",
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 20,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    fontFamily: "Ubuntu_500Medium",
+    color: "#0A2533",
   },
 });
 

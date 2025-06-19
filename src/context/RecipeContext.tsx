@@ -6,12 +6,34 @@ import React, {
   useEffect,
 } from "react";
 import { recipes as initialRecipes } from "../data/recipesData";
-import { Recipe, FilterOption } from "../types/recipe";
+import { Recipe, FilterOption, Comment } from "../types/recipe";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Storage keys
 const CREATED_RECIPES_STORAGE_KEY = "foodieFusion_createdRecipes";
 const SAVED_RECIPES_STORAGE_KEY = "foodieFusion_savedRecipes";
+const COMMENTS_STORAGE_KEY = "foodieFusion_comments";
+const LIKED_RECIPES_STORAGE_KEY = "foodieFusion_likedRecipes";
+
+// Default comments for the beef burger recipe
+const DEFAULT_COMMENTS: { [key: string]: Comment[] } = {
+  "2": [
+    {
+      id: "comment-default-1",
+      user: "Tanya",
+      date: "5/23/2025",
+      text: "Amazing and delicious!",
+      likes: "2560",
+    },
+    {
+      id: "comment-default-2",
+      user: "James",
+      date: "5/23/2025",
+      text: "I did not add any onions and I like it even better. Overall very simple and fast to cook. Thanx!",
+      likes: "2560",
+    },
+  ],
+};
 
 interface RecipeContextType {
   recipes: Recipe[];
@@ -26,6 +48,10 @@ interface RecipeContextType {
   saveRecipe: (recipeId: string) => void;
   removeSavedRecipe: (recipeId: string) => void;
   isRecipeSaved: (recipeId: string) => boolean;
+  likeRecipe: (recipeId: string) => Promise<void>;
+  unlikeRecipe: (recipeId: string) => Promise<void>;
+  isRecipeLiked: (recipeId: string) => Promise<boolean>;
+  getRecipeLikes: (recipeId: string) => Promise<number>;
   addCreatedRecipe: (recipeData: {
     title: string;
     ingredients: string;
@@ -35,6 +61,8 @@ interface RecipeContextType {
     recipeImage: string | null;
   }) => void;
   createdRecipes: Recipe[];
+  addComment: (recipeId: string, commentText: string) => void;
+  getRecipeComments: (recipeId: string) => Comment[];
 }
 
 const RecipeContext = createContext<RecipeContextType | undefined>(undefined);
@@ -52,13 +80,16 @@ interface RecipeProviderProps {
 }
 
 export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
-  const [recipes] = useState<Recipe[]>(initialRecipes);
+  const [recipes, setRecipes] = useState<Recipe[]>(initialRecipes);
   const [filteredRecipes, setFilteredRecipes] =
     useState<Recipe[]>(initialRecipes);
   const [savedRecipes, setSavedRecipes] = useState<Recipe[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [activeFilters, setActiveFilters] = useState<FilterOption[]>([]);
   const [createdRecipes, setCreatedRecipes] = useState<Recipe[]>([]);
+  const [likedRecipes, setLikedRecipes] = useState<{ [key: string]: number }>(
+    {}
+  );
   const [isLoading, setIsLoading] = useState(true);
 
   // Load saved & created recipes from AsyncStorage on component mount
@@ -81,6 +112,41 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
         if (storedSavedRecipes) {
           const parsedSavedRecipes = JSON.parse(storedSavedRecipes);
           setSavedRecipes(parsedSavedRecipes);
+        }
+
+        // Load comments and update recipes
+        const storedComments = await AsyncStorage.getItem(COMMENTS_STORAGE_KEY);
+        if (storedComments) {
+          const commentsMap = JSON.parse(storedComments);
+
+          // Update recipes with comments
+          const updatedRecipes = recipes.map((recipe) => {
+            if (commentsMap[recipe.id]) {
+              return { ...recipe, comments: commentsMap[recipe.id] };
+            }
+            return recipe;
+          });
+
+          setRecipes(updatedRecipes);
+
+          // Also update filtered recipes
+          setFilteredRecipes((prevFiltered) => {
+            return prevFiltered.map((recipe) => {
+              if (commentsMap[recipe.id]) {
+                return { ...recipe, comments: commentsMap[recipe.id] };
+              }
+              return recipe;
+            });
+          });
+        }
+
+        // Load liked recipes
+        const storedLikedRecipes = await AsyncStorage.getItem(
+          LIKED_RECIPES_STORAGE_KEY
+        );
+        if (storedLikedRecipes) {
+          const parsedLikedRecipes = JSON.parse(storedLikedRecipes);
+          setLikedRecipes(parsedLikedRecipes);
         }
       } catch (error) {
         console.error("Error loading data from AsyncStorage:", error);
@@ -307,6 +373,117 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
     return savedRecipes.some((recipe) => recipe.id === recipeId);
   };
 
+  // Add a comment to a recipe
+  const addComment = async (recipeId: string, commentText: string) => {
+    if (!commentText.trim()) return;
+
+    try {
+      // Create a new comment
+      const newComment: Comment = {
+        id: `comment-${Date.now()}-${Math.random()
+          .toString(36)
+          .substring(2, 10)}`,
+        user: "You", // In a real app, this would be the current user's name
+        date: new Date().toLocaleDateString(),
+        text: commentText.trim(),
+        likes: "0",
+      };
+
+      // Get existing comments from storage
+      const storedComments = await AsyncStorage.getItem(COMMENTS_STORAGE_KEY);
+      let commentsMap: { [key: string]: Comment[] } = {};
+
+      if (storedComments) {
+        commentsMap = JSON.parse(storedComments);
+      }
+
+      // Add new comment to the recipe
+      if (!commentsMap[recipeId]) {
+        commentsMap[recipeId] = [];
+      }
+
+      commentsMap[recipeId] = [newComment, ...commentsMap[recipeId]];
+
+      // Save updated comments to storage
+      await AsyncStorage.setItem(
+        COMMENTS_STORAGE_KEY,
+        JSON.stringify(commentsMap)
+      );
+
+      // Update recipes in state
+      setRecipes((prevRecipes) => {
+        return prevRecipes.map((recipe) => {
+          if (recipe.id === recipeId) {
+            const updatedComments = recipe.comments
+              ? [newComment, ...recipe.comments]
+              : [newComment];
+            return { ...recipe, comments: updatedComments };
+          }
+          return recipe;
+        });
+      });
+
+      // Also update filtered recipes
+      setFilteredRecipes((prevFiltered) => {
+        return prevFiltered.map((recipe) => {
+          if (recipe.id === recipeId) {
+            const updatedComments = recipe.comments
+              ? [newComment, ...recipe.comments]
+              : [newComment];
+            return { ...recipe, comments: updatedComments };
+          }
+          return recipe;
+        });
+      });
+
+      // Update created recipes if needed
+      setCreatedRecipes((prevCreated) => {
+        return prevCreated.map((recipe) => {
+          if (recipe.id === recipeId) {
+            const updatedComments = recipe.comments
+              ? [newComment, ...recipe.comments]
+              : [newComment];
+            return { ...recipe, comments: updatedComments };
+          }
+          return recipe;
+        });
+      });
+
+      // Update saved recipes if needed
+      setSavedRecipes((prevSaved) => {
+        return prevSaved.map((recipe) => {
+          if (recipe.id === recipeId) {
+            const updatedComments = recipe.comments
+              ? [newComment, ...recipe.comments]
+              : [newComment];
+            return { ...recipe, comments: updatedComments };
+          }
+          return recipe;
+        });
+      });
+    } catch (error) {
+      console.error("Error adding comment:", error);
+    }
+  };
+
+  // Get comments for a specific recipe
+  const getRecipeComments = (recipeId: string): Comment[] => {
+    const recipe = [...recipes, ...createdRecipes].find(
+      (r) => r.id === recipeId
+    );
+
+    // Combine default comments and user comments
+    if (DEFAULT_COMMENTS[recipeId]) {
+      // Get user comments if they exist
+      const userComments = recipe?.comments || [];
+
+      // Return both default and user comments together
+      return [...userComments, ...DEFAULT_COMMENTS[recipeId]];
+    }
+
+    return recipe?.comments || [];
+  };
+
   const addCreatedRecipe = (recipeData: {
     title: string;
     ingredients: string;
@@ -379,9 +556,7 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
       id: uniqueId,
       title: recipeData.title,
       creator: "You",
-      image: recipeData.recipeImage
-        ? { uri: recipeData.recipeImage }
-        : require("../../assets/avocado-toast.png"),
+      image: require("../../assets/default-food.png"),
       likes: "0",
       rating: "5", // Default rating for new recipes
       cookingTime: cookingTimeMinutes,
@@ -401,6 +576,107 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
     setFilteredRecipes((prev) => [newRecipe, ...prev]);
   };
 
+  // Save liked recipes to storage
+  const saveLikedRecipesToStorage = async (updatedLikedRecipes: {
+    [key: string]: number;
+  }) => {
+    try {
+      await AsyncStorage.setItem(
+        LIKED_RECIPES_STORAGE_KEY,
+        JSON.stringify(updatedLikedRecipes)
+      );
+    } catch (error) {
+      console.error("Error saving liked recipes to storage:", error);
+    }
+  };
+
+  // Like a recipe
+  const likeRecipe = async (recipeId: string) => {
+    try {
+      // Get current recipe likes count from the recipes array
+      const recipe = [...recipes, ...createdRecipes].find(
+        (r) => r.id === recipeId
+      );
+
+      if (!recipe) return;
+
+      // Convert likes to number (or start with current likes count if already liked)
+      const currentLikes = likedRecipes[recipeId] || parseInt(recipe.likes);
+      const updatedLikes = currentLikes + 1;
+
+      // Update state
+      const updatedLikedRecipes = {
+        ...likedRecipes,
+        [recipeId]: updatedLikes,
+      };
+
+      setLikedRecipes(updatedLikedRecipes);
+
+      // Save to storage
+      await saveLikedRecipesToStorage(updatedLikedRecipes);
+    } catch (error) {
+      console.error("Error liking recipe:", error);
+    }
+  };
+
+  // Unlike a recipe
+  const unlikeRecipe = async (recipeId: string) => {
+    try {
+      // Get the recipe from our data
+      const recipe = [...recipes, ...createdRecipes].find(
+        (r) => r.id === recipeId
+      );
+
+      if (!recipe) return;
+
+      // If recipe exists in likedRecipes, decrement the count
+      if (likedRecipes[recipeId]) {
+        const originalLikes = parseInt(recipe.likes);
+
+        // Don't go below the original likes count
+        const updatedLikes = Math.max(
+          originalLikes,
+          likedRecipes[recipeId] - 1
+        );
+
+        const updatedLikedRecipes = {
+          ...likedRecipes,
+          [recipeId]: updatedLikes,
+        };
+
+        // If we're back to original likes, remove from likedRecipes
+        if (updatedLikes === originalLikes) {
+          delete updatedLikedRecipes[recipeId];
+        }
+
+        setLikedRecipes(updatedLikedRecipes);
+
+        // Save to storage
+        await saveLikedRecipesToStorage(updatedLikedRecipes);
+      }
+    } catch (error) {
+      console.error("Error unliking recipe:", error);
+    }
+  };
+
+  // Check if a recipe is liked
+  const isRecipeLiked = async (recipeId: string): Promise<boolean> => {
+    return !!likedRecipes[recipeId];
+  };
+
+  // Get the likes count for a recipe
+  const getRecipeLikes = async (recipeId: string): Promise<number> => {
+    // Get the recipe
+    const recipe = [...recipes, ...createdRecipes].find(
+      (r) => r.id === recipeId
+    );
+
+    if (!recipe) return 0;
+
+    // Return the likes from likedRecipes if it exists, otherwise return the original likes count
+    return likedRecipes[recipeId] || parseInt(recipe.likes);
+  };
+
   return (
     <RecipeContext.Provider
       value={{
@@ -418,6 +694,12 @@ export const RecipeProvider: React.FC<RecipeProviderProps> = ({ children }) => {
         isRecipeSaved,
         addCreatedRecipe,
         createdRecipes,
+        addComment,
+        getRecipeComments,
+        likeRecipe,
+        unlikeRecipe,
+        isRecipeLiked,
+        getRecipeLikes,
       }}
     >
       {children}

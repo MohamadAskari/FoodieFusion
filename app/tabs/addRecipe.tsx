@@ -248,7 +248,6 @@ const AddRecipeScreen = () => {
   );
 };
 
-const { width } = Dimensions.get("window");
 
 const styles = StyleSheet.create({
   container: {
@@ -278,7 +277,7 @@ const styles = StyleSheet.create({
   },
   logo: {
     width: 32,
-    height: 35,
+    height: 32,
     borderRadius: 10,
   },
   headerTitle: {
